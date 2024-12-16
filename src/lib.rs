@@ -88,7 +88,7 @@ impl BytesAppendable for &str {
 
   #[inline(always)]
   fn push_to(&self, bytes: &mut Vec<u8>) {
-    bytes.extend(self.as_bytes());
+    bytes.extend_from_slice(self.as_bytes());
   }
 }
 
@@ -112,7 +112,7 @@ impl BytesAppendable for &String {
 
   #[inline(always)]
   fn push_to(&self, bytes: &mut Vec<u8>) {
-    bytes.extend(self.as_bytes());
+    bytes.extend_from_slice(self.as_bytes());
   }
 }
 
@@ -224,6 +224,54 @@ impl<T: BytesAppendable + ?Sized> BytesAppendable for &T {
   #[inline(always)]
   fn push_to(&self, bytes: &mut Vec<u8>) {
     (**self).push_to(bytes)
+  }
+}
+
+impl BytesAppendable for &Vec<u8> {
+  #[inline(always)]
+  fn byte_len(&self) -> usize {
+    self.len()
+  }
+
+  #[inline(always)]
+  fn push_to(&self, bytes: &mut Vec<u8>) {
+    bytes.extend_from_slice(self)
+  }
+}
+
+impl BytesAppendable for u8 {
+  #[inline(always)]
+  fn byte_len(&self) -> usize {
+    1
+  }
+
+  #[inline(always)]
+  fn push_to(&self, bytes: &mut Vec<u8>) {
+    bytes.push(*self)
+  }
+}
+
+impl BytesAppendable for [u8] {
+  #[inline(always)]
+  fn byte_len(&self) -> usize {
+    self.len()
+  }
+
+  #[inline(always)]
+  fn push_to(&self, bytes: &mut Vec<u8>) {
+    bytes.extend_from_slice(self)
+  }
+}
+
+impl<const N: usize> BytesAppendable for [u8; N] {
+  #[inline(always)]
+  fn byte_len(&self) -> usize {
+    N
+  }
+
+  #[inline(always)]
+  fn push_to(&self, bytes: &mut Vec<u8>) {
+    bytes.extend_from_slice(self);
   }
 }
 
