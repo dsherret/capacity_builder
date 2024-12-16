@@ -254,7 +254,7 @@ impl<'a> StringBuilder<'a> {
 
   /// Gets the current length of the builder.
   ///
-  /// On the first pass this will be the current capacity and
+  /// On the first pass this will be the current calculated capacity and
   /// on the second pass it will be the current length of the string.
   #[allow(clippy::len_without_is_empty)]
   pub fn len(&self) -> usize {
@@ -297,7 +297,7 @@ impl<'a> BytesBuilder<'a> {
 
   /// Gets the current length of the builder.
   ///
-  /// On the first pass this will be the current capacity and
+  /// On the first pass this will be the current calculated capacity and
   /// on the second pass it will be the current length of the bytes.
   #[allow(clippy::len_without_is_empty)]
   pub fn len(&self) -> usize {
