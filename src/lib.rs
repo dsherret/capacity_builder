@@ -252,6 +252,15 @@ impl<'a> StringBuilder<'a> {
     Ok(builder.text.unwrap())
   }
 
+  /// Gets the current length of the builder.
+  ///
+  /// On the first pass this will be the current capacity and
+  /// on the second pass it will be the current length of the string.
+  #[allow(clippy::len_without_is_empty)]
+  pub fn len(&self) -> usize {
+    self.text.as_ref().map(|t| t.len()).unwrap_or(self.capacity)
+  }
+
   #[inline(always)]
   pub fn append(&mut self, value: impl StringAppendable + 'a) {
     match &mut self.text {
@@ -284,6 +293,19 @@ impl<'a> BytesBuilder<'a> {
     build(&mut builder);
     debug_assert_eq!(builder.capacity, builder.bytes.as_ref().unwrap().len());
     Ok(builder.bytes.unwrap())
+  }
+
+  /// Gets the current length of the builder.
+  ///
+  /// On the first pass this will be the current capacity and
+  /// on the second pass it will be the current length of the bytes.
+  #[allow(clippy::len_without_is_empty)]
+  pub fn len(&self) -> usize {
+    self
+      .bytes
+      .as_ref()
+      .map(|t| t.len())
+      .unwrap_or(self.capacity)
   }
 
   #[inline(always)]
@@ -337,8 +359,11 @@ mod test {
   fn bytes_builder() {
     let bytes = BytesBuilder::build(|builder| {
       builder.append("Hello, ");
+      assert_eq!(builder.len(), 7);
       builder.append("world!");
+      assert_eq!(builder.len(), 13);
       builder.append("testing ");
+      assert_eq!(builder.len(), 21);
     })
     .unwrap();
     assert_eq!(String::from_utf8(bytes).unwrap(), "Hello, world!testing ");
