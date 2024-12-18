@@ -92,44 +92,6 @@ because errors when formatting are really rare and if an error is encountered it
 will store it to surface at the end and the rest of the `append` statements stop
 formatting.
 
-## Boxed Builder
-
-```rs
-use capacity_builder::StringBoxedBuilder;
-
-let builder = StringBoxedBuilder::new(|builder| {
-  builder.append(123);
-  builder.append(',');
-  builder.append(456);
-});
-
-assert_eq!(builder.build_capacity(), 7);
-// memoized
-assert_eq!(builder.build_capacity(), 7);
-// not memoized, but uses previously computed capacity
-assert_eq!(builder.build_text(), "123,456");
-```
-
-Note that a boxed builder will be slightly slower than just using the
-`StringBuilder::build` function.
-
-### Composing boxed builders
-
-It's possible to compose boxed builders by appending them to another builder:
-
-```rs
-let other_builder = StringBoxedBuilder::new(|builder| {
-  builder.append("Hello");
-});
-
-let text = StringBuilder::build(|builder| {
-  builder.append(&other_builder);
-  builder.append(" there!");
-});
-
-assert_eq!(text.unwrap(), "Hello there!");
-```
-
 ## Features
 
 1. The builder prevents adding owned data—only references.

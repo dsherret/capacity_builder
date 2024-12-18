@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::cell::Cell;
 use std::collections::TryReserveError;
 use std::fmt::Write;
 
@@ -342,38 +341,6 @@ impl BytesAppendable for [u8] {
   }
 }
 
-impl StringAppendableValue for &StringBoxedBuilder<'_> {
-  #[inline(always)]
-  fn byte_len(&self) -> usize {
-    self.capacity()
-  }
-
-  #[inline(always)]
-  fn push_to(&self, text: &mut String) {
-    self.fill_text(text);
-  }
-
-  #[inline(always)]
-  fn write_to_formatter(
-    &self,
-    fmt: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
-    self.fmt(fmt)
-  }
-}
-
-impl BytesAppendable for &BytesBoxedBuilder<'_> {
-  #[inline(always)]
-  fn byte_len(&self) -> usize {
-    self.capacity()
-  }
-
-  #[inline(always)]
-  fn push_to(&self, bytes: &mut Vec<u8>) {
-    self.fill_bytes(bytes);
-  }
-}
-
 impl<const N: usize> BytesAppendable for [u8; N] {
   #[inline(always)]
   fn byte_len(&self) -> usize {
@@ -383,86 +350,6 @@ impl<const N: usize> BytesAppendable for [u8; N] {
   #[inline(always)]
   fn push_to(&self, bytes: &mut Vec<u8>) {
     bytes.extend_from_slice(self);
-  }
-}
-
-/// A builder that accepts a boxed closure to build a string.
-pub struct StringBoxedBuilder<'a> {
-  capacity: Cell<usize>,
-  build_fn: Box<dyn Fn(&mut StringBuilder<'a, '_, '_>) + 'a>,
-  phantom: std::marker::PhantomData<&'a ()>,
-}
-
-impl<'a> StringBoxedBuilder<'a> {
-  #[inline(always)]
-  pub fn new(
-    build_fn: Box<dyn Fn(&mut StringBuilder<'a, '_, '_>) + 'a>,
-  ) -> Self {
-    StringBoxedBuilder {
-      build_fn,
-      capacity: Cell::new(0),
-      phantom: std::marker::PhantomData,
-    }
-  }
-
-  /// Builds the capacity storing the result or returns
-  /// a previously computed capacity.
-  pub fn capacity(&self) -> usize {
-    let capacity = self.capacity.get();
-    if capacity != 0 {
-      return capacity;
-    }
-
-    let mut builder = StringBuilder {
-      mode: Mode::Capacity,
-      capacity: 0,
-      phantom: std::marker::PhantomData,
-    };
-    (self.build_fn)(&mut builder);
-    self.capacity.set(builder.capacity);
-    builder.capacity
-  }
-
-  /// Builds the text erroring if the size could not be reserved.
-  pub fn build_text(&self) -> Result<String, TryReserveError> {
-    let mut text = String::new();
-    let mut builder = StringBuilder {
-      mode: Mode::Capacity,
-      capacity: self.capacity.get(),
-      phantom: std::marker::PhantomData,
-    };
-    if builder.capacity == 0 {
-      (self.build_fn)(&mut builder);
-      self.capacity.set(builder.capacity);
-    }
-    text.try_reserve_exact(builder.capacity)?;
-    builder.mode = Mode::Text(&mut text);
-    (self.build_fn)(&mut builder);
-    debug_assert_eq!(builder.capacity, text.len());
-    Ok(text)
-  }
-
-  pub fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let mut builder = StringBuilder {
-      mode: Mode::Format(fmt),
-      capacity: self.capacity.get(),
-      phantom: std::marker::PhantomData,
-    };
-    (self.build_fn)(&mut builder);
-    match builder.mode {
-      Mode::Format(_) => Ok(()),
-      Mode::FormatError(error) => Err(error),
-      Mode::Capacity | Mode::Text(_) => unreachable!(),
-    }
-  }
-
-  fn fill_text(&self, text: &mut String) {
-    let mut builder = StringBuilder {
-      mode: Mode::Text(text),
-      capacity: self.capacity.get(),
-      phantom: std::marker::PhantomData,
-    };
-    (self.build_fn)(&mut builder);
   }
 }
 
@@ -631,79 +518,14 @@ impl<'a> BytesBuilder<'a, '_> {
   }
 }
 
-/// A builder that accepts a boxed closure to build a `Vec<u8>`.
-pub struct BytesBoxedBuilder<'a> {
-  build_fn: Box<dyn Fn(&mut BytesBuilder<'a, '_>) + 'a>,
-  capacity: Cell<usize>,
-  phantom: std::marker::PhantomData<&'a ()>,
-}
-
-impl<'a> BytesBoxedBuilder<'a> {
-  #[inline(always)]
-  pub fn new(build_fn: Box<dyn Fn(&mut BytesBuilder<'a, '_>) + 'a>) -> Self {
-    BytesBoxedBuilder {
-      build_fn,
-      capacity: Cell::new(0),
-      phantom: std::marker::PhantomData,
-    }
-  }
-
-  /// Builds the capacity storing the result or returns
-  /// a previously computed capacity.
-  pub fn capacity(&self) -> usize {
-    let capacity = self.capacity.get();
-    if capacity != 0 {
-      return capacity;
-    }
-
-    let mut builder = BytesBuilder {
-      bytes: None,
-      capacity: 0,
-      phantom: std::marker::PhantomData,
-    };
-    (self.build_fn)(&mut builder);
-    self.capacity.set(builder.capacity);
-    builder.capacity
-  }
-
-  pub fn build_bytes(&self) -> Result<Vec<u8>, TryReserveError> {
-    let mut bytes = Vec::new();
-    let mut state = BytesBuilder {
-      bytes: None,
-      capacity: self.capacity.get(),
-      phantom: std::marker::PhantomData,
-    };
-    if state.capacity == 0 {
-      (self.build_fn)(&mut state);
-      self.capacity.set(state.capacity);
-    }
-    bytes.try_reserve_exact(state.capacity)?;
-    state.bytes = Some(&mut bytes);
-    (self.build_fn)(&mut state);
-    debug_assert_eq!(state.capacity, state.bytes.as_ref().unwrap().len());
-    Ok(bytes)
-  }
-
-  fn fill_bytes(&self, bytes: &mut Vec<u8>) {
-    let mut state = BytesBuilder {
-      bytes: Some(bytes),
-      capacity: self.capacity.get(),
-      phantom: std::marker::PhantomData,
-    };
-    (self.build_fn)(&mut state);
-  }
-}
-
 pub trait StringBuildable {
   fn string_build_with<'a>(&'a self, builder: &mut StringBuilder<'a, '_, '_>);
 }
 
 #[cfg(test)]
 mod test {
-  use crate::BytesBoxedBuilder;
   use crate::BytesBuilder;
   use crate::StringAppendableValue;
-  use crate::StringBoxedBuilder;
   use crate::StringBuilder;
 
   #[test]
@@ -731,53 +553,18 @@ mod test {
   }
 
   #[test]
-  fn string_builder_appended() {
-    let other_builder = StringBoxedBuilder::new(Box::new(|builder| {
-      builder.append("Hello");
-    }));
-
-    let text = StringBuilder::build(|builder| {
-      builder.append(&other_builder);
-      builder.append(" there!");
-    });
-
-    assert_eq!(text.unwrap(), "Hello there!");
-  }
-
-  #[test]
-  fn bytes_builder_appended() {
-    let other_builder = BytesBoxedBuilder::new(Box::new(|builder| {
-      builder.append("Hello");
-    }));
-
-    let bytes = BytesBuilder::build(|builder| {
-      builder.append(&other_builder);
-      builder.append(" there!");
-    });
-
-    assert_eq!(bytes.unwrap(), "Hello there!".as_bytes());
-  }
-
-  #[test]
   fn formatter() {
     struct MyStruct;
 
     impl std::fmt::Display for MyStruct {
       fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let other_builder = StringBoxedBuilder::new(Box::new(|builder| {
-          builder.append("Hello");
-        }));
-
-        other_builder.fmt(f)?;
-
         StringBuilder::fmt(f, |builder| {
-          builder.append(&other_builder);
-          builder.append(" there!");
+          builder.append("Hello there!");
         })
       }
     }
 
-    assert_eq!(format!("{}", MyStruct), "HelloHello there!");
+    assert_eq!(format!("{}", MyStruct), "Hello there!");
   }
 
   #[test]
@@ -805,13 +592,11 @@ mod test {
 
     impl std::fmt::Display for MyStruct {
       fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let builder = StringBoxedBuilder::new(Box::new(|builder| {
+        let result = StringBuilder::fmt(f, |builder| {
           builder.append("Will show");
           builder.append(AppendableError);
           builder.append("This won't");
-        }));
-
-        let result = builder.fmt(f);
+        });
         assert!(result.is_err());
 
         Ok(())
