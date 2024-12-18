@@ -92,6 +92,39 @@ because errors when formatting are really rare and if an error is encountered it
 will store it to surface at the end and the rest of the `append` statements stop
 formatting.
 
+## `BytesBuilder`
+
+The bytes builder is similar to the `StringBuilder`:
+
+```rs
+use capacity_builder::BytesBuilder;
+
+let bytes = BytesBuilder::build(|builder| {
+  builder.append_le(123);
+  builder.append("example");
+  builder.append(other_bytes);
+})?;
+```
+
+You can implement `BytesAppendable` to allow appending a struct to a builder.
+
+```rs
+struct MyStruct;
+
+impl<'a> BytesAppendable<'a> for &'a MyStruct {
+  fn append_to_builder(self, builder: &mut BytesBuilder<'a, '_>) {
+    builder.append("Hello");
+    builder.append(" there!");
+  }
+}
+
+let bytes = BytesBuilder::build(|builder| {
+  builder.append(&MyStruct);
+})
+.unwrap();
+assert_eq!(bytes, b"Hello there!");
+```
+
 ## Features
 
 1. The builder prevents adding owned data—only references.
