@@ -53,18 +53,22 @@ fn bytes_appendable() {
 
 #[test]
 fn box_str() {
+  let boxed_str = " there".to_string().into_boxed_str();
   let text = StringBuilder::<Box<str>>::build(|builder| {
     builder.append("hi");
+    builder.append(&boxed_str);
   })
   .unwrap();
-  assert_eq!(text, "hi".to_string().into_boxed_str());
+  assert_eq!(text, "hi there".to_string().into_boxed_str());
 }
 
 #[test]
 fn box_slice() {
+  let box_slice = " there".as_bytes().to_vec().into_boxed_slice();
   let bytes = BytesBuilder::<Box<[u8]>>::build(|builder| {
     builder.append("hi");
+    builder.append(&box_slice);
   })
   .unwrap();
-  assert_eq!(bytes, "hi".as_bytes().to_vec().into_boxed_slice());
+  assert_eq!(bytes, "hi there".as_bytes().to_vec().into_boxed_slice());
 }

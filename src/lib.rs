@@ -148,6 +148,16 @@ impl StringType for Box<str> {
   }
 }
 
+impl<'a> StringAppendable<'a> for &'a Box<str> {
+  #[inline(always)]
+  fn append_to_builder<TString: StringType>(
+    self,
+    builder: &mut StringBuilder<'a, TString>,
+  ) {
+    builder.append(self.as_ref());
+  }
+}
+
 pub trait StringAppendableValue {
   fn byte_len(&self) -> usize;
   fn push_to<TString: StringTypeMut>(&self, text: &mut TString);
@@ -200,6 +210,15 @@ impl BytesType for Box<[u8]> {
   #[inline(always)]
   fn from_mut(inner: Self::MutType) -> Self {
     inner.into_boxed_slice()
+  }
+}
+
+impl<'a> BytesAppendable<'a> for &'a Box<[u8]> {
+  fn append_to_builder<TBytes: BytesType>(
+    self,
+    builder: &mut BytesBuilder<'a, TBytes>,
+  ) {
+    builder.append(self.as_ref());
   }
 }
 
@@ -450,6 +469,18 @@ impl BytesAppendableValue for u8 {
   #[inline(always)]
   fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
     bytes.push(*self)
+  }
+}
+
+impl BytesAppendableValue for &[u8] {
+  #[inline(always)]
+  fn byte_len(&self) -> usize {
+    self.len()
+  }
+
+  #[inline(always)]
+  fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
+    bytes.extend_from_slice(self)
   }
 }
 
