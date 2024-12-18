@@ -70,5 +70,5 @@ fn box_slice() {
     builder.append(&box_slice);
   })
   .unwrap();
-  assert_eq!(bytes, "hi".as_bytes().to_vec().into_boxed_slice());
+  assert_eq!(bytes, "hi there".as_bytes().to_vec().into_boxed_slice());
 }
