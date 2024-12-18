@@ -28,69 +28,63 @@ let text = StringBuilder::build(|builder| {
 Behind the scenes it runs the closure once to compute the capacity and a second
 time to write the string.
 
-## `StringBuilder` - Use with `std::fmt::Display`
+## Implementing faster `.to_string()` and `std::fmt::Display`
 
-It's possible to use this with the `Display` trait by calling
-`StringBuilder::fmt`. This can be useful when you want to re-use the code for
-building a string with the code for the `Display` trait.
+The default `.to_string()` implementation reuses `std::fmt::Display`. This is
+slow because the capacity isn't set.
+
+This crate provides a `StringBuildable` trait and `#[derive(FastDisplay)]` macro
+for implementing `.to_string()` and `std::fmt::Display` using this crate.
 
 ```rs
-impl Version {
+use capacity_builder::FastDisplay;
+use capacity_builder::StringBuildable;
+use capacity_builder::StringBuilder;
+
+#[derive(Debug, FastDisplay)]
+pub struct Version {
   // ...
-
-  // ok because this to_string() is about 20% faster than reusing
-  // the Display impl
-  #[allow(clippy::inherent_to_string_shadow_display)]
-  pub fn to_string(&self) -> String {
-    capacity_builder::StringBuilder::build(|builder| {
-      build_version_to_string(self, builder);
-    })
-    .unwrap()
-  }
 }
 
-impl fmt::Display for Version {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    capacity_builder::StringBuilder::fmt(f, |builder| {
-      build_version_to_string(self, builder);
-    })
-  }
-}
-
-fn build_version_to_string<'a>(
-  version: &'a Version,
-  builder: &mut capacity_builder::StringBuilder<'a, '_, '_>,
-) {
-  builder.append(version.major);
-  builder.append('.');
-  builder.append(version.minor);
-  builder.append('.');
-  builder.append(version.patch);
-  if !version.pre.is_empty() {
-    builder.append('-');
-    for (i, part) in version.pre.iter().enumerate() {
-      if i > 0 {
-        builder.append('.');
+impl StringBuildable for Version {
+  fn string_build_with<'a>(
+    &'a self,
+    builder: &mut capacity_builder::StringBuilder<'a, '_, '_>,
+  ) {
+    builder.append(version.major);
+    builder.append('.');
+    builder.append(version.minor);
+    builder.append('.');
+    builder.append(version.patch);
+    if !version.pre.is_empty() {
+      builder.append('-');
+      for (i, part) in version.pre.iter().enumerate() {
+        if i > 0 {
+          builder.append('.');
+        }
+        builder.append(part);
       }
-      builder.append(part);
     }
-  }
-  if !version.build.is_empty() {
-    builder.append('+');
-    for (i, part) in version.build.iter().enumerate() {
-      if i > 0 {
-        builder.append('.');
+    if !version.build.is_empty() {
+      builder.append('+');
+      for (i, part) in version.build.iter().enumerate() {
+        if i > 0 {
+          builder.append('.');
+        }
+        builder.append(part);
       }
-      builder.append(part);
     }
   }
 }
 ```
 
+Now `version.to_string()` will be fast and return a string that has an accurate
+capacity.
+
 You may have noticed that no errors are necessary to surface. This is because
-generally errors when formatting are really rare and if an error is encountered
-it will store it to surface at the end and the rest of the `append` statements
-stop formatting.
+errors when formatting are really rare and if an error is encountered it will
+store it to surface at the end and the rest of the `append` statements stop
+formatting.
 
 ## Boxed Builder
 
