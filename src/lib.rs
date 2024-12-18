@@ -4,6 +4,8 @@ use std::fmt::Write;
 
 #[cfg(feature = "ecow")]
 pub mod ecow;
+#[cfg(feature = "hipstr")]
+pub mod hipstr;
 
 pub use capacity_builder_macros::FastDisplay;
 
