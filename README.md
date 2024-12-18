@@ -30,6 +30,25 @@ let text = StringBuilder::<String>::build(|builder| {
 Behind the scenes it runs the closure once to compute the capacity and a second
 time to write the string.
 
+Note that providing an owned value will cause an error at compile time in order
+to prevent doing any allocation twice instead of once:
+
+```rs
+let text = StringBuilder::<String>::build(|builder| {
+  builder.append("some allocated value".to_string());
+                 ^-- Lifetime compile time error
+})?;
+```
+
+To fix this, allocate outside the closure:
+
+```rs
+let value = "some allocated value".to_string();
+let text = StringBuilder::<String>::build(|builder| {
+  builder.append(&value); // ok
+})?;
+```
+
 ### `BytesBuilder`
 
 The bytes builder is similar to the `StringBuilder`:
