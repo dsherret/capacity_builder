@@ -1,4 +1,7 @@
 {
+  "markdown": {
+    "textWrap": "always"
+  },
   "exec": {
     "cwd": "${configDir}",
     "commands": [{
