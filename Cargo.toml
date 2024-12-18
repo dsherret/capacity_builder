@@ -7,8 +7,8 @@ repository = "https://github.com/dsherret/capacity_builder"
 description = "Builders where the code to calculate the capacity is the same as the code to write what's being built."
 
 [features]
-ecow = ["dep:ecow"]
-hipstr = ["dep:hipstr"]
+ecow = ["dep:ecow", "capacity_builder_macros/ecow"]
+hipstr = ["dep:hipstr", "capacity_builder_macros/hipstr"]
 
 [package.metadata.docs.rs]
 all-features = true
