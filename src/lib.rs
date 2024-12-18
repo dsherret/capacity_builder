@@ -2,6 +2,9 @@ use std::borrow::Cow;
 use std::collections::TryReserveError;
 use std::fmt::Write;
 
+#[cfg(feature = "ecow")]
+pub mod ecow;
+
 pub use capacity_builder_macros::FastDisplay;
 
 macro_rules! count_digits {
