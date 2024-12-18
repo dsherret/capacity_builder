@@ -1,14 +1,17 @@
+use ecow::EcoString;
+
+use crate::StringAppendable;
 use crate::StringType;
 use crate::StringTypeMut;
 
-impl StringType for ecow::EcoString {
-  type MutType = ecow::EcoString;
+impl StringType for EcoString {
+  type MutType = EcoString;
 
   #[inline(always)]
   fn with_capacity(
     size: usize,
   ) -> Result<Self::MutType, std::collections::TryReserveError> {
-    Ok(ecow::EcoString::with_capacity(size))
+    Ok(EcoString::with_capacity(size))
   }
 
   #[inline(always)]
@@ -17,7 +20,7 @@ impl StringType for ecow::EcoString {
   }
 }
 
-impl StringTypeMut for ecow::EcoString {
+impl StringTypeMut for EcoString {
   fn push(&mut self, c: char) {
     self.push(c);
   }
@@ -31,17 +34,30 @@ impl StringTypeMut for ecow::EcoString {
   }
 }
 
+impl<'a> StringAppendable<'a> for &'a EcoString {
+  fn append_to_builder<TString: StringType>(
+    self,
+    builder: &mut crate::StringBuilder<'a, TString>,
+  ) {
+    builder.append(self.as_str());
+  }
+}
+
 #[cfg(test)]
 mod test {
+  use ecow::EcoString;
+
   use crate::StringBuilder;
 
   #[test]
   fn builds() {
-    let text = StringBuilder::<ecow::EcoString>::build(|builder| {
+    let eco_string = EcoString::from(" Testing");
+    let text = StringBuilder::<EcoString>::build(|builder| {
       builder.append("Hello");
       builder.append(" there!");
+      builder.append(&eco_string);
     })
     .unwrap();
-    assert_eq!(text, "Hello there!");
+    assert_eq!(text, "Hello there! Testing");
   }
 }

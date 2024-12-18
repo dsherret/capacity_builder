@@ -1,5 +1,6 @@
 use hipstr::HipStr;
 
+use crate::StringAppendable;
 use crate::StringType;
 use crate::StringTypeMut;
 
@@ -33,17 +34,30 @@ impl StringTypeMut for HipStr<'static> {
   }
 }
 
+impl<'a> StringAppendable<'a> for &'a HipStr<'_> {
+  fn append_to_builder<TString: StringType>(
+    self,
+    builder: &mut crate::StringBuilder<'a, TString>,
+  ) {
+    builder.append(self.as_str());
+  }
+}
+
 #[cfg(test)]
 mod test {
+  use hipstr::HipStr;
+
   use crate::StringBuilder;
 
   #[test]
   fn builds() {
+    let hipstr = HipStr::from(" Testing");
     let text = StringBuilder::<hipstr::HipStr>::build(|builder| {
       builder.append("Hello");
       builder.append(" there!");
+      builder.append(&hipstr);
     })
     .unwrap();
-    assert_eq!(text, "Hello there!");
+    assert_eq!(text, "Hello there! Testing");
   }
 }
