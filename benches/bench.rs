@@ -10,7 +10,7 @@ mod strings {
 
   #[divan::bench]
   fn string_builder() -> usize {
-    StringBuilder::build(|builder| {
+    StringBuilder::<String>::build(|builder| {
       builder.append("Hello, ");
       builder.append("world!");
       builder.append("testing ");
@@ -34,7 +34,7 @@ mod numbers {
   use super::*;
   #[divan::bench]
   fn string_builder() -> usize {
-    StringBuilder::build(|builder| {
+    StringBuilder::<String>::build(|builder| {
       for i in 0..1000 {
         builder.append(i);
       }

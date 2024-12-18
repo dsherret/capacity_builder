@@ -28,11 +28,11 @@ macro_rules! impl_appendable_for_int {
           std::mem::size_of::<$t>()
         }
 
-        fn push_le_to(&self, bytes: &mut Vec<u8>) {
+        fn push_le_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
           bytes.extend_from_slice(&self.to_le_bytes());
         }
 
-        fn push_be_to(&self, bytes: &mut Vec<u8>) {
+        fn push_be_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
           bytes.extend_from_slice(&self.to_be_bytes());
         }
       }
@@ -42,7 +42,7 @@ macro_rules! impl_appendable_for_int {
           count_digits!(*self)
         }
 
-        fn push_to(&self, text: &mut String) {
+        fn push_to<TString: StringTypeMut>(&self, text: &mut TString) {
           // no need to reuse buffers as per the documentation
           // and as found in my benchmarks
           let mut buffer = itoa::Buffer::new();
@@ -62,44 +62,178 @@ macro_rules! impl_appendable_for_int {
 }
 
 pub trait StringAppendable<'a> {
-  fn append_to_builder(self, builder: &mut StringBuilder<'a, '_, '_>);
+  fn append_to_builder<TString: StringType>(
+    self,
+    builder: &mut StringBuilder<'a, TString>,
+  );
 }
 
 impl<'a, T> StringAppendable<'a> for T
 where
   T: StringAppendableValue,
 {
-  fn append_to_builder(self, builder: &mut StringBuilder<'a, '_, '_>) {
+  fn append_to_builder<TString: StringType>(
+    self,
+    builder: &mut StringBuilder<'a, TString>,
+  ) {
     builder.append_value(self);
   }
 }
 
-pub trait StringBuildable {
-  fn string_build_with<'a>(&'a self, builder: &mut StringBuilder<'a, '_, '_>);
+pub trait StringType: Sized {
+  type MutType: StringTypeMut;
+
+  fn with_capacity(size: usize) -> Result<Self::MutType, TryReserveError>;
+  fn from_mut(inner: Self::MutType) -> Self;
+}
+
+#[allow(clippy::len_without_is_empty)]
+pub trait StringTypeMut {
+  fn push(&mut self, c: char);
+  fn push_str(&mut self, str: &str);
+  fn len(&self) -> usize;
+}
+
+impl StringType for String {
+  type MutType = String;
+
+  #[inline(always)]
+  fn with_capacity(size: usize) -> Result<Self::MutType, TryReserveError> {
+    let mut text = String::new();
+    text.try_reserve_exact(size)?;
+    Ok(text)
+  }
+
+  #[inline(always)]
+  fn from_mut(inner: Self::MutType) -> Self {
+    inner
+  }
+}
+
+impl StringTypeMut for String {
+  #[inline(always)]
+  fn push(&mut self, c: char) {
+    String::push(self, c)
+  }
+
+  #[inline(always)]
+  fn push_str(&mut self, str: &str) {
+    String::push_str(self, str)
+  }
+
+  #[inline(always)]
+  fn len(&self) -> usize {
+    String::len(self)
+  }
+}
+
+impl StringType for Box<str> {
+  type MutType = String;
+
+  #[inline(always)]
+  fn with_capacity(size: usize) -> Result<Self::MutType, TryReserveError> {
+    let mut text = String::new();
+    text.try_reserve_exact(size)?;
+    Ok(text)
+  }
+
+  #[inline(always)]
+  fn from_mut(inner: Self::MutType) -> Self {
+    inner.into_boxed_str()
+  }
 }
 
 pub trait StringAppendableValue {
   fn byte_len(&self) -> usize;
-  fn push_to(&self, text: &mut String);
+  fn push_to<TString: StringTypeMut>(&self, text: &mut TString);
   fn write_to_formatter(
     &self,
     fmt: &mut std::fmt::Formatter<'_>,
   ) -> std::fmt::Result;
 }
 
+pub trait BytesType: Sized {
+  type MutType: BytesTypeMut;
+
+  fn with_capacity(size: usize) -> Result<Self::MutType, TryReserveError>;
+  fn from_mut(inner: Self::MutType) -> Self;
+}
+
+#[allow(clippy::len_without_is_empty)]
+pub trait BytesTypeMut: Sized {
+  fn push(&mut self, c: u8);
+  fn extend_from_slice(&mut self, bytes: &[u8]);
+  fn len(&self) -> usize;
+}
+
+impl BytesType for Vec<u8> {
+  type MutType = Vec<u8>;
+
+  #[inline(always)]
+  fn with_capacity(size: usize) -> Result<Self::MutType, TryReserveError> {
+    let mut bytes = Vec::new();
+    bytes.try_reserve_exact(size)?;
+    Ok(bytes)
+  }
+
+  #[inline(always)]
+  fn from_mut(inner: Self::MutType) -> Self {
+    inner
+  }
+}
+
+impl BytesType for Box<[u8]> {
+  type MutType = Vec<u8>;
+
+  #[inline(always)]
+  fn with_capacity(size: usize) -> Result<Self::MutType, TryReserveError> {
+    let mut bytes = Vec::new();
+    bytes.try_reserve_exact(size)?;
+    Ok(bytes)
+  }
+
+  #[inline(always)]
+  fn from_mut(inner: Self::MutType) -> Self {
+    inner.into_boxed_slice()
+  }
+}
+
+impl BytesTypeMut for Vec<u8> {
+  #[inline(always)]
+  fn push(&mut self, c: u8) {
+    self.push(c)
+  }
+
+  #[inline(always)]
+  fn extend_from_slice(&mut self, bytes: &[u8]) {
+    self.extend_from_slice(bytes);
+  }
+
+  #[inline(always)]
+  fn len(&self) -> usize {
+    self.len()
+  }
+}
+
 pub trait BytesAppendable<'a> {
-  fn append_to_builder(self, builder: &mut BytesBuilder<'a, '_>);
+  fn append_to_builder<TBytes: BytesType>(
+    self,
+    builder: &mut BytesBuilder<'a, TBytes>,
+  );
 }
 
 pub trait BytesAppendableValue {
   fn byte_len(&self) -> usize;
-  fn push_to(&self, bytes: &mut Vec<u8>);
+  fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes);
 }
 
 impl<'a, T: BytesAppendableValue> BytesAppendable<'a> for T {
-  fn append_to_builder(self, builder: &mut BytesBuilder<'a, '_>) {
+  fn append_to_builder<TBytes: BytesType>(
+    self,
+    builder: &mut BytesBuilder<'a, TBytes>,
+  ) {
     match &mut builder.bytes {
-      Some(b) => self.push_to(b),
+      Some(b) => self.push_to(*b),
       None => builder.capacity += self.byte_len(),
     }
   }
@@ -107,8 +241,8 @@ impl<'a, T: BytesAppendableValue> BytesAppendable<'a> for T {
 
 pub trait EndianBytesAppendable {
   fn byte_len(&self) -> usize;
-  fn push_le_to(&self, bytes: &mut Vec<u8>);
-  fn push_be_to(&self, bytes: &mut Vec<u8>);
+  fn push_le_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes);
+  fn push_be_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes);
 }
 
 impl StringAppendableValue for &str {
@@ -118,7 +252,7 @@ impl StringAppendableValue for &str {
   }
 
   #[inline(always)]
-  fn push_to(&self, text: &mut String) {
+  fn push_to<TString: StringTypeMut>(&self, text: &mut TString) {
     text.push_str(self);
   }
 
@@ -138,7 +272,7 @@ impl BytesAppendableValue for &str {
   }
 
   #[inline(always)]
-  fn push_to(&self, bytes: &mut Vec<u8>) {
+  fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
     bytes.extend_from_slice(self.as_bytes());
   }
 }
@@ -150,7 +284,7 @@ impl StringAppendableValue for &String {
   }
 
   #[inline(always)]
-  fn push_to(&self, text: &mut String) {
+  fn push_to<TString: StringTypeMut>(&self, text: &mut TString) {
     text.push_str(self);
   }
 
@@ -170,7 +304,7 @@ impl BytesAppendableValue for &String {
   }
 
   #[inline(always)]
-  fn push_to(&self, bytes: &mut Vec<u8>) {
+  fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
     bytes.extend_from_slice(self.as_bytes());
   }
 }
@@ -182,7 +316,7 @@ impl<'a> StringAppendableValue for &'a Cow<'a, str> {
   }
 
   #[inline(always)]
-  fn push_to(&self, text: &mut String) {
+  fn push_to<TString: StringTypeMut>(&self, text: &mut TString) {
     text.push_str(self);
   }
 
@@ -202,8 +336,8 @@ impl<'a> BytesAppendableValue for &'a Cow<'a, str> {
   }
 
   #[inline(always)]
-  fn push_to(&self, bytes: &mut Vec<u8>) {
-    bytes.extend(self.as_bytes());
+  fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
+    bytes.extend_from_slice(self.as_bytes());
   }
 }
 
@@ -218,7 +352,7 @@ impl StringAppendableValue for char {
   }
 
   #[inline(always)]
-  fn push_to(&self, text: &mut String) {
+  fn push_to<TString: StringTypeMut>(&self, text: &mut TString) {
     text.push(*self);
   }
 
@@ -237,7 +371,7 @@ impl BytesAppendableValue for char {
     self.len_utf8()
   }
 
-  fn push_to(&self, bytes: &mut Vec<u8>) {
+  fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
     let mut buffer = [0; 4];
     let encoded = self.encode_utf8(&mut buffer);
     bytes.extend_from_slice(encoded.as_bytes())
@@ -254,7 +388,7 @@ impl<T: StringAppendableValue> StringAppendableValue for Option<T> {
   }
 
   #[inline(always)]
-  fn push_to(&self, text: &mut String) {
+  fn push_to<TString: StringTypeMut>(&self, text: &mut TString) {
     if let Some(value) = self {
       value.push_to(text);
     }
@@ -283,42 +417,10 @@ impl<T: BytesAppendableValue> BytesAppendableValue for Option<T> {
   }
 
   #[inline(always)]
-  fn push_to(&self, bytes: &mut Vec<u8>) {
+  fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
     if let Some(value) = self {
       value.push_to(bytes);
     }
-  }
-}
-
-impl<T: StringAppendableValue + ?Sized> StringAppendableValue for &T {
-  #[inline(always)]
-  fn byte_len(&self) -> usize {
-    (**self).byte_len()
-  }
-
-  #[inline(always)]
-  fn push_to(&self, text: &mut String) {
-    (**self).push_to(text)
-  }
-
-  #[inline(always)]
-  fn write_to_formatter(
-    &self,
-    fmt: &mut std::fmt::Formatter<'_>,
-  ) -> std::fmt::Result {
-    (**self).write_to_formatter(fmt)
-  }
-}
-
-impl<T: BytesAppendableValue + ?Sized> BytesAppendableValue for &T {
-  #[inline(always)]
-  fn byte_len(&self) -> usize {
-    (**self).byte_len()
-  }
-
-  #[inline(always)]
-  fn push_to(&self, bytes: &mut Vec<u8>) {
-    (**self).push_to(bytes)
   }
 }
 
@@ -329,7 +431,7 @@ impl BytesAppendableValue for &Vec<u8> {
   }
 
   #[inline(always)]
-  fn push_to(&self, bytes: &mut Vec<u8>) {
+  fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
     bytes.extend_from_slice(self)
   }
 }
@@ -341,7 +443,7 @@ impl BytesAppendableValue for u8 {
   }
 
   #[inline(always)]
-  fn push_to(&self, bytes: &mut Vec<u8>) {
+  fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
     bytes.push(*self)
   }
 }
@@ -353,7 +455,7 @@ impl BytesAppendableValue for [u8] {
   }
 
   #[inline(always)]
-  fn push_to(&self, bytes: &mut Vec<u8>) {
+  fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
     bytes.extend_from_slice(self)
   }
 }
@@ -365,43 +467,24 @@ impl<const N: usize> BytesAppendableValue for [u8; N] {
   }
 
   #[inline(always)]
-  fn push_to(&self, bytes: &mut Vec<u8>) {
+  fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
     bytes.extend_from_slice(self);
   }
 }
 
-enum Mode<'a, 'b> {
+enum Mode<'a, TStringMut> {
   Capacity,
-  Text(&'a mut String),
-  Format(&'a mut std::fmt::Formatter<'b>),
+  Text(&'a mut TStringMut),
+  Format(&'a mut std::fmt::Formatter<'a>),
   FormatError(std::fmt::Error),
 }
 
-pub struct StringBuilder<'a, 'b, 'c> {
+pub struct StringBuilder<'a, TString: StringType = String> {
   capacity: usize,
-  mode: Mode<'b, 'c>,
-  phantom: std::marker::PhantomData<&'a ()>,
+  mode: Mode<'a, TString::MutType>,
 }
 
-impl<'a> StringBuilder<'a, '_, '_> {
-  #[inline(always)]
-  pub fn build(
-    build: impl Fn(&mut StringBuilder<'a, '_, '_>),
-  ) -> Result<String, TryReserveError> {
-    let mut state = StringBuilder {
-      mode: Mode::Capacity,
-      capacity: 0,
-      phantom: std::marker::PhantomData,
-    };
-    build(&mut state);
-    let mut text = String::new();
-    text.try_reserve_exact(state.capacity)?;
-    state.mode = Mode::Text(&mut text);
-    build(&mut state);
-    debug_assert_eq!(state.capacity, text.len());
-    Ok(text)
-  }
-
+impl<'a> StringBuilder<'a, String> {
   /// Formats the string using the provided formatter.
   ///
   /// If an error occurs, the error is stored and surfaced
@@ -409,12 +492,17 @@ impl<'a> StringBuilder<'a, '_, '_> {
   #[inline(always)]
   pub fn fmt(
     fmt: &mut std::fmt::Formatter<'_>,
-    build: impl FnOnce(&mut StringBuilder<'a, '_, '_>),
+    build: impl FnOnce(&mut StringBuilder<'a, String>),
   ) -> std::fmt::Result {
     let mut state = StringBuilder {
-      mode: Mode::Format(fmt),
+      // SAFETY: mutable interior whose lifetimes we don't want to expose in the public API
+      mode: Mode::Format(unsafe {
+        std::mem::transmute::<
+          &mut std::fmt::Formatter<'_>,
+          &mut std::fmt::Formatter<'_>,
+        >(fmt)
+      }),
       capacity: 0,
-      phantom: std::marker::PhantomData,
     };
     build(&mut state);
     match state.mode {
@@ -422,6 +510,30 @@ impl<'a> StringBuilder<'a, '_, '_> {
       Mode::FormatError(error) => Err(error),
       Mode::Capacity | Mode::Text(_) => unreachable!(),
     }
+  }
+}
+
+impl<'a, TString: StringType> StringBuilder<'a, TString> {
+  #[inline(always)]
+  pub fn build(
+    build: impl Fn(&mut StringBuilder<'a, TString>),
+  ) -> Result<TString, TryReserveError> {
+    let mut state = StringBuilder {
+      mode: Mode::Capacity,
+      capacity: 0,
+    };
+    build(&mut state);
+    let mut text = TString::with_capacity(state.capacity)?;
+    // SAFETY: mutable interior whose lifetimes we don't want to expose in the public API
+    state.mode = Mode::Text(unsafe {
+      std::mem::transmute::<
+        &mut <TString as StringType>::MutType,
+        &mut <TString as StringType>::MutType,
+      >(&mut text)
+    });
+    build(&mut state);
+    debug_assert_eq!(state.capacity, text.len());
+    Ok(TString::from_mut(text))
   }
 
   /// Gets the current length of the builder.
@@ -443,7 +555,7 @@ impl<'a> StringBuilder<'a, '_, '_> {
 
   fn append_value(&mut self, value: impl StringAppendableValue) {
     match &mut self.mode {
-      Mode::Text(t) => value.push_to(t),
+      Mode::Text(t) => value.push_to(*t),
       Mode::Capacity => self.capacity += value.byte_len(),
       Mode::Format(formatter) => {
         let result = value.write_to_formatter(formatter);
@@ -464,29 +576,32 @@ impl<'a> StringBuilder<'a, '_, '_> {
   }
 }
 
-pub struct BytesBuilder<'a, 'b> {
+pub struct BytesBuilder<'a, TBytes: BytesType> {
   capacity: usize,
-  bytes: Option<&'b mut Vec<u8>>,
-  phantom: std::marker::PhantomData<&'a ()>,
+  bytes: Option<&'a mut TBytes::MutType>,
 }
 
-impl<'a> BytesBuilder<'a, '_> {
+impl<'a, TBytes: BytesType> BytesBuilder<'a, TBytes> {
   #[inline(always)]
   pub fn build(
-    build: impl Fn(&mut BytesBuilder<'a, '_>),
-  ) -> Result<Vec<u8>, TryReserveError> {
+    build: impl Fn(&mut BytesBuilder<'a, TBytes>),
+  ) -> Result<TBytes, TryReserveError> {
     let mut builder = BytesBuilder {
       bytes: None,
       capacity: 0,
-      phantom: std::marker::PhantomData,
     };
     build(&mut builder);
-    let mut bytes = Vec::new();
-    bytes.try_reserve_exact(builder.capacity)?;
-    builder.bytes = Some(&mut bytes);
+    let mut bytes = TBytes::with_capacity(builder.capacity)?;
+    // SAFETY: mutable interior whose lifetimes we don't want to expose in the public API
+    builder.bytes = Some(unsafe {
+      std::mem::transmute::<
+        &mut <TBytes as BytesType>::MutType,
+        &mut <TBytes as BytesType>::MutType,
+      >(&mut bytes)
+    });
     build(&mut builder);
     debug_assert_eq!(builder.capacity, builder.bytes.as_ref().unwrap().len());
-    Ok(bytes)
+    Ok(TBytes::from_mut(bytes))
   }
 
   /// Gets the current length of the builder.
@@ -514,7 +629,7 @@ impl<'a> BytesBuilder<'a, '_> {
   #[inline(always)]
   pub fn append_be<T: EndianBytesAppendable + 'a>(&mut self, value: T) {
     match &mut self.bytes {
-      Some(b) => value.push_be_to(b),
+      Some(b) => value.push_be_to(*b),
       None => self.capacity += value.byte_len(),
     }
   }
@@ -526,7 +641,7 @@ impl<'a> BytesBuilder<'a, '_> {
   #[inline(always)]
   pub fn append_le<T: EndianBytesAppendable + 'a>(&mut self, value: T) {
     match &mut self.bytes {
-      Some(b) => value.push_le_to(b),
+      Some(b) => value.push_le_to(*b),
       None => self.capacity += value.byte_len(),
     }
   }
@@ -537,10 +652,11 @@ mod test {
   use crate::BytesBuilder;
   use crate::StringAppendableValue;
   use crate::StringBuilder;
+  use crate::StringTypeMut;
 
   #[test]
   fn bytes_builder_be_and_le() {
-    let bytes = BytesBuilder::build(|builder| {
+    let bytes = BytesBuilder::<Vec<u8>>::build(|builder| {
       builder.append_be(6i32);
       builder.append_le(8i32);
     })
@@ -586,7 +702,7 @@ mod test {
         1
       }
 
-      fn push_to(&self, _text: &mut String) {
+      fn push_to<TString: StringTypeMut>(&self, _text: &mut TString) {
         unreachable!();
       }
 

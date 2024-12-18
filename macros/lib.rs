@@ -10,25 +10,17 @@ pub fn fast_display_derive(input: TokenStream) -> TokenStream {
   let expanded = quote! {
     impl #name {
       pub fn to_string(&self) -> String {
-        capacity_builder::StringBuilder::build(|builder| {
-          self.string_build_with(builder);
+        capacity_builder::StringBuilder::<String>::build(|builder| {
+          builder.append(self)
         }).unwrap()
       }
     }
 
-    impl std::fmt::Display for #name where #name: capacity_builder::StringBuildable {
+    impl std::fmt::Display for #name {
       fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        capacity_builder::StringBuilder::fmt(f, |builder| {
-          self.string_build_with(builder);
+        capacity_builder::StringBuilder::<String>::fmt(f, |builder| {
+          builder.append(self)
         })
-      }
-    }
-
-    impl<'a> capacity_builder::StringAppendable<'a> for &'a #name
-    {
-      #[inline(always)]
-      fn append_to_builder(self, builder: &mut capacity_builder::StringBuilder<'a, '_, '_>) {
-        self.string_build_with(builder);
       }
     }
   };

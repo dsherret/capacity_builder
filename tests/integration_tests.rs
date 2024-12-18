@@ -1,29 +1,33 @@
 use capacity_builder::BytesAppendable;
 use capacity_builder::BytesBuilder;
+use capacity_builder::BytesType;
 use capacity_builder::FastDisplay;
-use capacity_builder::StringBuildable;
+use capacity_builder::StringAppendable;
 use capacity_builder::StringBuilder;
+use capacity_builder::StringType;
 
 #[test]
 fn string_buildable() {
   #[derive(FastDisplay)]
   struct MyStruct;
 
-  impl StringBuildable for MyStruct {
-    fn string_build_with<'a>(
-      &'a self,
-      builder: &mut StringBuilder<'a, '_, '_>,
+  impl<'a> StringAppendable<'a> for &'a MyStruct {
+    fn append_to_builder<TString: StringType>(
+      self,
+      builder: &mut StringBuilder<'a, TString>,
     ) {
       builder.append("Hello");
       builder.append(" there!");
     }
   }
 
-  let text = StringBuilder::build(|builder| {
+  let text = StringBuilder::<String>::build(|builder| {
     builder.append(&MyStruct);
   })
   .unwrap();
   assert_eq!(text, "Hello there!");
+  assert_eq!(format!("{}", MyStruct), "Hello there!");
+  assert_eq!(MyStruct.to_string(), "Hello there!");
 }
 
 #[test]
@@ -31,15 +35,36 @@ fn bytes_appendable() {
   struct MyStruct;
 
   impl<'a> BytesAppendable<'a> for &'a MyStruct {
-    fn append_to_builder(self, builder: &mut BytesBuilder<'a, '_>) {
+    fn append_to_builder<TBytes: BytesType>(
+      self,
+      builder: &mut BytesBuilder<'a, TBytes>,
+    ) {
       builder.append("Hello");
       builder.append(" there!");
     }
   }
 
-  let bytes = BytesBuilder::build(|builder| {
+  let bytes = BytesBuilder::<Vec<u8>>::build(|builder| {
     builder.append(&MyStruct);
   })
   .unwrap();
   assert_eq!(bytes, b"Hello there!");
+}
+
+#[test]
+fn box_str() {
+  let text = StringBuilder::<Box<str>>::build(|builder| {
+    builder.append("hi");
+  })
+  .unwrap();
+  assert_eq!(text, "hi".to_string().into_boxed_str());
+}
+
+#[test]
+fn box_slice() {
+  let bytes = BytesBuilder::<Box<[u8]>>::build(|builder| {
+    builder.append("hi");
+  })
+  .unwrap();
+  assert_eq!(bytes, "hi".as_bytes().to_vec().into_boxed_slice());
 }
