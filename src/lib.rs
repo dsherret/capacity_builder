@@ -3,6 +3,8 @@ use std::cell::Cell;
 use std::collections::TryReserveError;
 use std::fmt::Write;
 
+pub use capacity_builder_macros::FastDisplay;
+
 macro_rules! count_digits {
   ($value:expr) => {{
     let mut value = $value;
@@ -36,7 +38,7 @@ macro_rules! impl_appendable_for_int {
         }
       }
 
-      impl StringAppendable for $t {
+      impl StringAppendableValue for $t {
         fn byte_len(&self) -> usize {
           count_digits!(*self)
         }
@@ -60,7 +62,20 @@ macro_rules! impl_appendable_for_int {
   };
 }
 
-pub trait StringAppendable {
+pub trait StringAppendable<'a> {
+  fn append_to_builder(self, builder: &mut StringBuilder<'a, '_, '_>);
+}
+
+impl<'a, T> StringAppendable<'a> for T
+where
+  T: StringAppendableValue,
+{
+  fn append_to_builder(self, builder: &mut StringBuilder<'a, '_, '_>) {
+    builder.append_value(self);
+  }
+}
+
+pub trait StringAppendableValue {
   fn byte_len(&self) -> usize;
   fn push_to(&self, text: &mut String);
   fn write_to_formatter(
@@ -80,7 +95,7 @@ pub trait EndianBytesAppendable {
   fn push_be_to(&self, bytes: &mut Vec<u8>);
 }
 
-impl StringAppendable for &str {
+impl StringAppendableValue for &str {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     self.len()
@@ -112,7 +127,7 @@ impl BytesAppendable for &str {
   }
 }
 
-impl StringAppendable for &String {
+impl StringAppendableValue for &String {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     self.len()
@@ -144,7 +159,7 @@ impl BytesAppendable for &String {
   }
 }
 
-impl<'a> StringAppendable for &'a Cow<'a, str> {
+impl<'a> StringAppendableValue for &'a Cow<'a, str> {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     self.len()
@@ -180,7 +195,7 @@ impl_appendable_for_int!(
   i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
 
-impl StringAppendable for char {
+impl StringAppendableValue for char {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     self.len_utf8()
@@ -213,7 +228,7 @@ impl BytesAppendable for char {
   }
 }
 
-impl<T: StringAppendable> StringAppendable for Option<T> {
+impl<T: StringAppendableValue> StringAppendableValue for Option<T> {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     match self {
@@ -259,7 +274,7 @@ impl<T: BytesAppendable> BytesAppendable for Option<T> {
   }
 }
 
-impl<T: StringAppendable + ?Sized> StringAppendable for &T {
+impl<T: StringAppendableValue + ?Sized> StringAppendableValue for &T {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     (**self).byte_len()
@@ -327,7 +342,7 @@ impl BytesAppendable for [u8] {
   }
 }
 
-impl StringAppendable for &StringBoxedBuilder<'_> {
+impl StringAppendableValue for &StringBoxedBuilder<'_> {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     self.capacity()
@@ -518,7 +533,11 @@ impl<'a> StringBuilder<'a, '_, '_> {
   }
 
   #[inline(always)]
-  pub fn append(&mut self, value: impl StringAppendable + 'a) {
+  pub fn append(&mut self, value: impl StringAppendable<'a> + 'a) {
+    value.append_to_builder(self);
+  }
+
+  fn append_value(&mut self, value: impl StringAppendableValue) {
     match &mut self.mode {
       Mode::Text(t) => value.push_to(t),
       Mode::Capacity => self.capacity += value.byte_len(),
@@ -675,11 +694,15 @@ impl<'a> BytesBoxedBuilder<'a> {
   }
 }
 
+pub trait StringBuildable {
+  fn string_build_with<'a>(&'a self, builder: &mut StringBuilder<'a, '_, '_>);
+}
+
 #[cfg(test)]
 mod test {
   use crate::BytesBoxedBuilder;
   use crate::BytesBuilder;
-  use crate::StringAppendable;
+  use crate::StringAppendableValue;
   use crate::StringBoxedBuilder;
   use crate::StringBuilder;
 
@@ -761,7 +784,7 @@ mod test {
   fn formatter_error() {
     struct AppendableError;
 
-    impl StringAppendable for AppendableError {
+    impl StringAppendableValue for AppendableError {
       fn byte_len(&self) -> usize {
         1
       }
