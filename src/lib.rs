@@ -74,6 +74,10 @@ where
   }
 }
 
+pub trait StringBuildable {
+  fn string_build_with<'a>(&'a self, builder: &mut StringBuilder<'a, '_, '_>);
+}
+
 pub trait StringAppendableValue {
   fn byte_len(&self) -> usize;
   fn push_to(&self, text: &mut String);
@@ -83,9 +87,22 @@ pub trait StringAppendableValue {
   ) -> std::fmt::Result;
 }
 
-pub trait BytesAppendable {
+pub trait BytesAppendable<'a> {
+  fn append_to_builder(self, builder: &mut BytesBuilder<'a, '_>);
+}
+
+pub trait BytesAppendableValue {
   fn byte_len(&self) -> usize;
   fn push_to(&self, bytes: &mut Vec<u8>);
+}
+
+impl<'a, T: BytesAppendableValue> BytesAppendable<'a> for T {
+  fn append_to_builder(self, builder: &mut BytesBuilder<'a, '_>) {
+    match &mut builder.bytes {
+      Some(b) => self.push_to(b),
+      None => builder.capacity += self.byte_len(),
+    }
+  }
 }
 
 pub trait EndianBytesAppendable {
@@ -114,7 +131,7 @@ impl StringAppendableValue for &str {
   }
 }
 
-impl BytesAppendable for &str {
+impl BytesAppendableValue for &str {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     self.len()
@@ -146,7 +163,7 @@ impl StringAppendableValue for &String {
   }
 }
 
-impl BytesAppendable for &String {
+impl BytesAppendableValue for &String {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     self.len()
@@ -178,7 +195,7 @@ impl<'a> StringAppendableValue for &'a Cow<'a, str> {
   }
 }
 
-impl<'a> BytesAppendable for &'a Cow<'a, str> {
+impl<'a> BytesAppendableValue for &'a Cow<'a, str> {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     self.len()
@@ -214,7 +231,7 @@ impl StringAppendableValue for char {
   }
 }
 
-impl BytesAppendable for char {
+impl BytesAppendableValue for char {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     self.len_utf8()
@@ -256,7 +273,7 @@ impl<T: StringAppendableValue> StringAppendableValue for Option<T> {
   }
 }
 
-impl<T: BytesAppendable> BytesAppendable for Option<T> {
+impl<T: BytesAppendableValue> BytesAppendableValue for Option<T> {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     match self {
@@ -293,7 +310,7 @@ impl<T: StringAppendableValue + ?Sized> StringAppendableValue for &T {
   }
 }
 
-impl<T: BytesAppendable + ?Sized> BytesAppendable for &T {
+impl<T: BytesAppendableValue + ?Sized> BytesAppendableValue for &T {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     (**self).byte_len()
@@ -305,7 +322,7 @@ impl<T: BytesAppendable + ?Sized> BytesAppendable for &T {
   }
 }
 
-impl BytesAppendable for &Vec<u8> {
+impl BytesAppendableValue for &Vec<u8> {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     self.len()
@@ -317,7 +334,7 @@ impl BytesAppendable for &Vec<u8> {
   }
 }
 
-impl BytesAppendable for u8 {
+impl BytesAppendableValue for u8 {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     1
@@ -329,7 +346,7 @@ impl BytesAppendable for u8 {
   }
 }
 
-impl BytesAppendable for [u8] {
+impl BytesAppendableValue for [u8] {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     self.len()
@@ -341,7 +358,7 @@ impl BytesAppendable for [u8] {
   }
 }
 
-impl<const N: usize> BytesAppendable for [u8; N] {
+impl<const N: usize> BytesAppendableValue for [u8; N] {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     N
@@ -486,11 +503,8 @@ impl<'a> BytesBuilder<'a, '_> {
   }
 
   #[inline(always)]
-  pub fn append(&mut self, value: impl BytesAppendable + 'a) {
-    match &mut self.bytes {
-      Some(b) => value.push_to(b),
-      None => self.capacity += value.byte_len(),
-    }
+  pub fn append(&mut self, value: impl BytesAppendable<'a> + 'a) {
+    value.append_to_builder(self);
   }
 
   /// Appends a number in big-endian byte order.
@@ -516,10 +530,6 @@ impl<'a> BytesBuilder<'a, '_> {
       None => self.capacity += value.byte_len(),
     }
   }
-}
-
-pub trait StringBuildable {
-  fn string_build_with<'a>(&'a self, builder: &mut StringBuilder<'a, '_, '_>);
 }
 
 #[cfg(test)]
