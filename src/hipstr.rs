@@ -21,20 +21,24 @@ impl StringType for HipStr<'static> {
 }
 
 impl StringTypeMut for HipStr<'static> {
+  #[inline(always)]
   fn push(&mut self, c: char) {
     self.push(c);
   }
 
+  #[inline(always)]
   fn push_str(&mut self, str: &str) {
     self.push_str(str);
   }
 
+  #[inline(always)]
   fn len(&self) -> usize {
     self.len()
   }
 }
 
 impl<'a> StringAppendable<'a> for &'a HipStr<'_> {
+  #[inline(always)]
   fn append_to_builder<TString: StringType>(
     self,
     builder: &mut crate::StringBuilder<'a, TString>,
