@@ -6,21 +6,21 @@ use capacity_builder::StringAppendable;
 use capacity_builder::StringBuilder;
 use capacity_builder::StringType;
 
+#[derive(FastDisplay)]
+struct MyStruct;
+
+impl<'a> StringAppendable<'a> for &'a MyStruct {
+  fn append_to_builder<TString: StringType>(
+    self,
+    builder: &mut StringBuilder<'a, TString>,
+  ) {
+    builder.append("Hello");
+    builder.append(" there!");
+  }
+}
+
 #[test]
 fn string_buildable() {
-  #[derive(FastDisplay)]
-  struct MyStruct;
-
-  impl<'a> StringAppendable<'a> for &'a MyStruct {
-    fn append_to_builder<TString: StringType>(
-      self,
-      builder: &mut StringBuilder<'a, TString>,
-    ) {
-      builder.append("Hello");
-      builder.append(" there!");
-    }
-  }
-
   let text = StringBuilder::<String>::build(|builder| {
     builder.append(&MyStruct);
   })
@@ -71,4 +71,18 @@ fn box_slice() {
   })
   .unwrap();
   assert_eq!(bytes, "hi there".as_bytes().to_vec().into_boxed_slice());
+}
+
+#[cfg(feature = "ecow")]
+#[test]
+fn to_string_helpers_ecow() {
+  let text = MyStruct.to_string_ecow();
+  assert_eq!(text, "Hello there!");
+}
+
+#[cfg(feature = "hipstr")]
+#[test]
+fn to_string_helpers_hipstr() {
+  let text = MyStruct.to_string_hipstr();
+  assert_eq!(text, "Hello there!");
 }
