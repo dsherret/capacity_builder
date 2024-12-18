@@ -168,15 +168,18 @@ errors. This is because errors when formatting are really rare and if an error
 is encountered it will store it to surface at the end and the rest of the
 `append` statements stop formatting.
 
-## Features
+## Cargo Features
 
-1. The builder prevents adding owned data—only references.
-   - This helps to prevent accidentally allocating data multiple times in the
-     closure.
-1. Errors when capacity cannot be reserved.
-1. For the string builder, types other than references can be provided.
-   - Numbers get written with the [itoa](https://crates.io/crates/itoa) crate.
-1. Can be made to work with types other than `String`.
+- `ecow` - Allows using this with the [ecow](https://crates.io/crates/ecow)
+  crate.
+
+Example:
+
+```rs
+let text = StringBuilder::<ecow::EcoString>::build(|builder| {
+  // ...
+}).unwrap();
+```
 
 ## Tips
 

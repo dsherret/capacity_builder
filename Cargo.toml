@@ -6,8 +6,15 @@ license = "MIT"
 repository = "https://github.com/dsherret/capacity_builder"
 description = "Builders where the code to calculate the capacity is the same as the code to write what's being built."
 
+[features]
+ecow = ["dep:ecow"]
+
+[package.metadata.docs.rs]
+all-features = true
+
 [dependencies]
 capacity_builder_macros = { version = "0.1.0", path = "./macros" }
+ecow = { version = "0.2", optional = true }
 itoa = "1.0.14"
 
 [dev-dependencies]

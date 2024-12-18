@@ -20,6 +20,7 @@ version = "0.3.0"
 dependencies = [
  "capacity_builder_macros",
  "divan",
+ "ecow",
  "itoa",
 ]
 
@@ -93,6 +94,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "ecow"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e42fc0a93992b20c58b99e59d61eaf1635a25bfbe49e4275c34ba0aee98119ba"
 
 [[package]]
 name = "errno"
