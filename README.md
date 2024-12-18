@@ -170,10 +170,15 @@ is encountered it will store it to surface at the end and the rest of the
 
 ## Cargo Features
 
-- `ecow` - Allows using this with the [ecow](https://crates.io/crates/ecow)
-  crate.
+- [`ecow`](https://crates.io/crates/ecow)
+- [`hipstr`](https://crates.io/crates/hipstr)
 
 Example:
+
+```toml
+# Cargo.toml
+capacity_builder = { version = "...", features = ["ecow"] }
+```
 
 ```rs
 let text = StringBuilder::<ecow::EcoString>::build(|builder| {

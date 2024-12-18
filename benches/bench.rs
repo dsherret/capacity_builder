@@ -53,3 +53,34 @@ mod numbers {
     text.len()
   }
 }
+
+mod small_string_types {
+  use capacity_builder::StringType;
+
+  use super::*;
+
+  #[divan::bench(sample_count = 1000)]
+  fn string() -> usize {
+    StringBuilder::<String>::build(build).unwrap().len()
+  }
+
+  #[cfg(feature = "ecow")]
+  #[divan::bench(sample_count = 1000)]
+  fn ecow() -> usize {
+    StringBuilder::<ecow::EcoString>::build(build)
+      .unwrap()
+      .len()
+  }
+
+  #[cfg(feature = "hipstr")]
+  #[divan::bench(sample_count = 1000)]
+  fn hipstr() -> usize {
+    StringBuilder::<hipstr::HipStr>::build(build).unwrap().len()
+  }
+
+  fn build<TString: StringType>(builder: &mut StringBuilder<'_, TString>) {
+    for _ in 0..12 {
+      builder.append('a');
+    }
+  }
+}
