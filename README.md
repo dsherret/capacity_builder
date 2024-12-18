@@ -81,9 +81,15 @@ impl StringBuildable for Version {
 Now `version.to_string()` will be fast and return a string that has an accurate
 capacity.
 
-You may have noticed that no errors are necessary to surface. This is because
-errors when formatting are really rare and if an error is encountered it will
-store it to surface at the end and the rest of the `append` statements stop
+Additionally, this type can now be appended to other builders:
+
+```rs
+builder.append(&version);
+```
+
+Side note: You may have noticed that no errors are necessary to surface. This is
+because errors when formatting are really rare and if an error is encountered it
+will store it to surface at the end and the rest of the `append` statements stop
 formatting.
 
 ## Boxed Builder
