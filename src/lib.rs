@@ -723,6 +723,16 @@ impl<'a, TString: StringType> StringBuilder<'a, TString> {
   }
 }
 
+/// Helper method for converting an appendable value to a string.
+pub fn appendable_to_string<'a, TString: StringType>(
+  value: impl StringAppendable<'a> + Copy + 'a,
+) -> Result<TString, TryReserveError>
+where
+  <TString as StringType>::MutType: 'a,
+{
+  StringBuilder::<TString>::build(|builder| builder.append(value))
+}
+
 pub struct BytesBuilder<'a, TBytes: BytesType> {
   capacity: usize,
   bytes: Option<&'a mut TBytes::MutType>,

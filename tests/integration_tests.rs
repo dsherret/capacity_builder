@@ -194,6 +194,10 @@ fn box_slice() {
 fn to_string_helpers_ecow() {
   let text: ecow::EcoString = MyStruct.to_custom_string::<ecow::EcoString>();
   assert_eq!(text, "Hello there!");
+  let text: ecow::EcoString =
+    capacity_builder::appendable_to_string::<ecow::EcoString>(&MyStruct)
+      .unwrap();
+  assert_eq!(text, "Hello there!");
 }
 
 #[cfg(feature = "hipstr")]
@@ -201,5 +205,10 @@ fn to_string_helpers_ecow() {
 fn to_string_helpers_hipstr() {
   let text: hipstr::HipStr<'static> =
     MyStruct.to_custom_string::<hipstr::HipStr<'static>>();
+  assert_eq!(text, "Hello there!");
+  let text: hipstr::HipStr<'static> = capacity_builder::appendable_to_string::<
+    hipstr::HipStr<'static>,
+  >(&MyStruct)
+  .unwrap();
   assert_eq!(text, "Hello there!");
 }
