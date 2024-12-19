@@ -84,3 +84,82 @@ mod small_string_types {
     }
   }
 }
+
+mod string {
+  use capacity_builder::StringBuilder;
+
+  #[divan::bench(sample_count = 1000)]
+  fn small_string_many_writes() -> usize {
+    StringBuilder::<String>::build(|builder| {
+      for _ in 0..12 {
+        builder.append('a');
+      }
+    })
+    .unwrap()
+    .len()
+  }
+
+  #[divan::bench(sample_count = 1000)]
+  fn large_string_many_writes() -> usize {
+    StringBuilder::<String>::build(|builder| {
+      for _ in 0..1024 {
+        builder.append('a');
+      }
+    })
+    .unwrap()
+    .len()
+  }
+
+  #[divan::bench(sample_count = 1000)]
+  fn large_string_several_writes() -> usize {
+    let text = "testing".repeat(1000);
+    StringBuilder::<String>::build(|builder| {
+      builder.append(&text);
+      builder.append(&text);
+      builder.append(&text);
+      builder.append(&text);
+    })
+    .unwrap()
+    .len()
+  }
+}
+
+#[cfg(feature = "ecow")]
+mod ecow_bench {
+  use capacity_builder::StringBuilder;
+
+  #[divan::bench(sample_count = 1000)]
+  fn small_string_many_writes() -> usize {
+    StringBuilder::<ecow::EcoString>::build(|builder| {
+      for _ in 0..12 {
+        builder.append('a');
+      }
+    })
+    .unwrap()
+    .len()
+  }
+
+  #[divan::bench(sample_count = 1000)]
+  fn large_string_many_writes() -> usize {
+    StringBuilder::<ecow::EcoString>::build(|builder| {
+      for _ in 0..1024 {
+        builder.append('a');
+      }
+    })
+    .unwrap()
+    .len()
+  }
+
+  #[divan::bench(sample_count = 1000)]
+  fn large_string_several_writes() -> usize {
+    let text = "testing".repeat(1000);
+    StringBuilder::<ecow::EcoString>::build(|builder| {
+      builder.append(&text);
+      builder.append(&text);
+      builder.append(&text);
+      builder.append(&text);
+    })
+    .unwrap()
+    .len()
+  }
+}

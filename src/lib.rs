@@ -7,7 +7,7 @@ pub mod ecow;
 #[cfg(feature = "hipstr")]
 pub mod hipstr;
 
-pub use capacity_builder_macros::FastDisplay;
+pub use capacity_builder_macros::CapacityDisplay;
 
 macro_rules! count_digits {
   ($value:expr) => {{
@@ -721,6 +721,16 @@ impl<'a, TString: StringType> StringBuilder<'a, TString> {
       }
     }
   }
+}
+
+/// Helper method for converting an appendable value to a string.
+pub fn appendable_to_string<'a, TString: StringType>(
+  value: impl StringAppendable<'a> + Copy + 'a,
+) -> TString
+where
+  <TString as StringType>::MutType: 'a,
+{
+  StringBuilder::<TString>::build(|builder| builder.append(value)).unwrap()
 }
 
 pub struct BytesBuilder<'a, TBytes: BytesType> {

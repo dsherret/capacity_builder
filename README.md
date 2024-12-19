@@ -140,15 +140,15 @@ impl<'a> StringAppendable for &'a Version {
 The default `.to_string()` implementation reuses `std::fmt::Display`. This is
 slow because the capacity isn't set.
 
-This crate provides a `#[derive(FastDisplay)]` macro for implementing
+This crate provides a `#[derive(CapacityDisplay)]` macro for implementing
 `.to_string()` and `std::fmt::Display` reusing the implementation in
 `StringAppendable`.
 
 ```rs
-use capacity_builder::FastDisplay;
+use capacity_builder::CapacityDisplay;
 use capacity_builder::StringAppendable;
 
-#[derive(Debug, FastDisplay)] // <-- add this
+#[derive(CapacityDisplay)] // <-- add this
 pub struct Version {
   // ...
 }
