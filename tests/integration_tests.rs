@@ -192,13 +192,14 @@ fn box_slice() {
 #[cfg(feature = "ecow")]
 #[test]
 fn to_string_helpers_ecow() {
-  let text = MyStruct.to_string_ecow();
+  let text: ecow::EcoString = MyStruct.to_custom_string::<ecow::EcoString>();
   assert_eq!(text, "Hello there!");
 }
 
 #[cfg(feature = "hipstr")]
 #[test]
 fn to_string_helpers_hipstr() {
-  let text = MyStruct.to_string_hipstr();
+  let text: hipstr::HipStr<'static> =
+    MyStruct.to_custom_string::<hipstr::HipStr<'static>>();
   assert_eq!(text, "Hello there!");
 }
