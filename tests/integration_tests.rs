@@ -1,14 +1,14 @@
 use capacity_builder::BytesAppendable;
 use capacity_builder::BytesBuilder;
 use capacity_builder::BytesType;
-use capacity_builder::FastDisplay;
+use capacity_builder::CapacityDisplay;
 use capacity_builder::StringAppendable;
 use capacity_builder::StringAppendableValue;
 use capacity_builder::StringBuilder;
 use capacity_builder::StringType;
 use capacity_builder::StringTypeMut;
 
-#[derive(FastDisplay)]
+#[derive(CapacityDisplay)]
 struct MyStruct;
 
 impl<'a> StringAppendable<'a> for &'a MyStruct {

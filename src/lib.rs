@@ -7,7 +7,7 @@ pub mod ecow;
 #[cfg(feature = "hipstr")]
 pub mod hipstr;
 
-pub use capacity_builder_macros::FastDisplay;
+pub use capacity_builder_macros::CapacityDisplay;
 
 macro_rules! count_digits {
   ($value:expr) => {{

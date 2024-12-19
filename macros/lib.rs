@@ -3,8 +3,8 @@ use quote::quote;
 use syn::parse_macro_input;
 use syn::DeriveInput;
 
-#[proc_macro_derive(FastDisplay)]
-pub fn fast_display_derive(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(CapacityDisplay)]
+pub fn capacity_display_derive(input: TokenStream) -> TokenStream {
   let input = parse_macro_input!(input as DeriveInput);
   let name = &input.ident;
 
