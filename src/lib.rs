@@ -472,7 +472,7 @@ impl BytesAppendableValue for u8 {
   }
 }
 
-impl BytesAppendableValue for &[u8] {
+impl BytesAppendableValue for [u8] {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     self.len()
@@ -484,7 +484,7 @@ impl BytesAppendableValue for &[u8] {
   }
 }
 
-impl BytesAppendableValue for [u8] {
+impl BytesAppendableValue for &[u8] {
   #[inline(always)]
   fn byte_len(&self) -> usize {
     self.len()
@@ -505,6 +505,18 @@ impl<const N: usize> BytesAppendableValue for [u8; N] {
   #[inline(always)]
   fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
     bytes.extend_from_slice(self);
+  }
+}
+
+impl<const N: usize> BytesAppendableValue for &[u8; N] {
+  #[inline(always)]
+  fn byte_len(&self) -> usize {
+    N
+  }
+
+  #[inline(always)]
+  fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
+    bytes.extend_from_slice(*self);
   }
 }
 
@@ -587,6 +599,105 @@ impl<'a, TString: StringType> StringBuilder<'a, TString> {
   #[inline(always)]
   pub fn append(&mut self, value: impl StringAppendable<'a> + 'a) {
     value.append_to_builder(self);
+  }
+
+  pub fn append_with_replace(&mut self, value: &'a str, from: &str, to: &str) {
+    fn calculate_capacity(value: &str, from: &str, to: &str) -> usize {
+      if from.len() == to.len() {
+        value.len()
+      } else {
+        let count = value.match_indices(value).count();
+        if to.len() > from.len() {
+          value.len() + count * (to.len() - from.len())
+        } else {
+          value.len() - count * (from.len() - to.len())
+        }
+      }
+    }
+
+    fn format_with_replace(
+      formatter: &mut std::fmt::Formatter<'_>,
+      value: &str,
+      from: &str,
+      to: &str,
+    ) -> Result<usize, std::fmt::Error> {
+      let mut start = 0;
+      let mut size = 0;
+      while let Some(pos) = value[start..].find(from) {
+        let end_pos = start + pos;
+        formatter.write_str(&value[start..end_pos])?;
+        formatter.write_str(to)?;
+        size += pos + to.len();
+        start += pos + from.len();
+      }
+      let remaining = &value[start..];
+      formatter.write_str(remaining)?;
+      size += remaining.len();
+      Ok(size)
+    }
+
+    match &mut self.mode {
+      Mode::Text(buffer) => {
+        let mut start = 0;
+        while let Some(pos) = value[start..].find(from) {
+          buffer.push_str(&value[start..start + pos]);
+          buffer.push_str(to);
+          start += pos + from.len();
+        }
+        buffer.push_str(&value[start..]);
+      }
+      Mode::Format(formatter) => {
+        match format_with_replace(formatter, value, from, to) {
+          Ok(size) => self.capacity += size,
+          Err(e) => {
+            // this is very rare, so if it happens we transition
+            // to an error state, storing the error to be surfaced
+            // later and don't bother formatting the remaining bytes
+            self.mode = Mode::FormatError(e);
+            self.capacity = calculate_capacity(value, from, to);
+          }
+        }
+      }
+      Mode::Capacity | Mode::FormatError(_) => {
+        self.capacity += calculate_capacity(value, from, to);
+      }
+    }
+  }
+
+  /// Appends an owned value whose size is known on the first pass.
+  ///
+  /// WARNING: Be very careful using this as you might accidentally cause
+  /// a reallocation. In debug mode this will panic when the size does not
+  /// equal the built value.
+  pub fn append_owned_unsafe<TStringRef: AsRef<str>>(
+    &mut self,
+    size: usize,
+    build: impl FnOnce() -> TStringRef,
+  ) {
+    match &mut self.mode {
+      Mode::Text(t) => {
+        let text = build();
+        debug_assert_eq!(text.as_ref().len(), size, "append_owned used where size was not equal! This will cause a reallocation in release mode.");
+        t.push_str(text.as_ref());
+      }
+      Mode::Capacity => self.capacity += size,
+      Mode::Format(formatter) => {
+        let text = build();
+        let result = formatter.write_str(text.as_ref());
+        if let Err(e) = result {
+          // this is very rare, so if it happens we transition
+          // to an error state, storing the error to be surfaced
+          // later and don't bother formatting the remaining bytes
+          self.mode = Mode::FormatError(e);
+        }
+        self.capacity += size;
+      }
+      Mode::FormatError(_) => {
+        // keep setting the capacity in case the remaining
+        // code relies on this
+        self.capacity += size;
+      }
+    }
   }
 
   fn append_value(&mut self, value: impl StringAppendableValue) {
@@ -680,91 +791,5 @@ impl<'a, TBytes: BytesType> BytesBuilder<'a, TBytes> {
       Some(b) => value.push_le_to(*b),
       None => self.capacity += value.byte_len(),
     }
-  }
-}
-
-#[cfg(test)]
-mod test {
-  use crate::BytesBuilder;
-  use crate::StringAppendableValue;
-  use crate::StringBuilder;
-  use crate::StringTypeMut;
-
-  #[test]
-  fn bytes_builder_be_and_le() {
-    let bytes = BytesBuilder::<Vec<u8>>::build(|builder| {
-      builder.append_be(6i32);
-      builder.append_le(8i32);
-    })
-    .unwrap();
-    assert_eq!(bytes, vec![0, 0, 0, 6, 8, 0, 0, 0]);
-  }
-
-  #[test]
-  fn bytes_builder() {
-    let bytes = BytesBuilder::build(|builder| {
-      builder.append("Hello, ");
-      assert_eq!(builder.len(), 7);
-      builder.append("world!");
-      assert_eq!(builder.len(), 13);
-      builder.append("testing ");
-      assert_eq!(builder.len(), 21);
-    })
-    .unwrap();
-    assert_eq!(String::from_utf8(bytes).unwrap(), "Hello, world!testing ");
-  }
-
-  #[test]
-  fn formatter() {
-    struct MyStruct;
-
-    impl std::fmt::Display for MyStruct {
-      fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        StringBuilder::fmt(f, |builder| {
-          builder.append("Hello there!");
-        })
-      }
-    }
-
-    assert_eq!(format!("{}", MyStruct), "Hello there!");
-  }
-
-  #[test]
-  fn formatter_error() {
-    struct AppendableError;
-
-    impl StringAppendableValue for AppendableError {
-      fn byte_len(&self) -> usize {
-        1
-      }
-
-      fn push_to<TString: StringTypeMut>(&self, _text: &mut TString) {
-        unreachable!();
-      }
-
-      fn write_to_formatter(
-        &self,
-        _fmt: &mut std::fmt::Formatter<'_>,
-      ) -> std::fmt::Result {
-        std::fmt::Result::Err(std::fmt::Error)
-      }
-    }
-
-    struct MyStruct;
-
-    impl std::fmt::Display for MyStruct {
-      fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let result = StringBuilder::fmt(f, |builder| {
-          builder.append("Will show");
-          builder.append(AppendableError);
-          builder.append("This won't");
-        });
-        assert!(result.is_err());
-
-        Ok(())
-      }
-    }
-
-    assert_eq!(format!("{}", MyStruct), "Will show");
   }
 }
