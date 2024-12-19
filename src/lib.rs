@@ -726,11 +726,11 @@ impl<'a, TString: StringType> StringBuilder<'a, TString> {
 /// Helper method for converting an appendable value to a string.
 pub fn appendable_to_string<'a, TString: StringType>(
   value: impl StringAppendable<'a> + Copy + 'a,
-) -> Result<TString, TryReserveError>
+) -> TString
 where
   <TString as StringType>::MutType: 'a,
 {
-  StringBuilder::<TString>::build(|builder| builder.append(value))
+  StringBuilder::<TString>::build(|builder| builder.append(value)).unwrap()
 }
 
 pub struct BytesBuilder<'a, TBytes: BytesType> {
