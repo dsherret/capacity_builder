@@ -1,6 +1,6 @@
 [package]
 name = "capacity_builder"
-version = "0.4.2"
+version = "0.5.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/dsherret/capacity_builder"
@@ -14,7 +14,7 @@ hipstr = ["dep:hipstr"]
 all-features = true
 
 [dependencies]
-capacity_builder_macros = { version = "0.2.1", path = "./macros" }
+capacity_builder_macros = { version = "0.3.0", path = "./macros" }
 ecow = { version = "0.2", optional = true }
 hipstr = { version = "0.6", optional = true }
 itoa = "1.0.14"
