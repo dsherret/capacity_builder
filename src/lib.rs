@@ -520,6 +520,18 @@ impl<const N: usize> BytesAppendableValue for &[u8; N] {
   }
 }
 
+impl BytesAppendableValue for &Cow<'_, [u8]> {
+  #[inline(always)]
+  fn byte_len(&self) -> usize {
+    self.len()
+  }
+
+  #[inline(always)]
+  fn push_to<TBytes: BytesTypeMut>(&self, bytes: &mut TBytes) {
+    bytes.extend_from_slice(self);
+  }
+}
+
 enum Mode<'a, TStringMut> {
   Capacity,
   Text(&'a mut TStringMut),
@@ -759,6 +771,16 @@ impl<'a, TBytes: BytesType> BytesBuilder<'a, TBytes> {
     build(&mut builder);
     debug_assert_eq!(builder.capacity, builder.bytes.as_ref().unwrap().len());
     Ok(TBytes::from_mut(bytes))
+  }
+
+  /// Calculates the byte length of an appendable value.
+  pub fn appendable_len(appendable: impl BytesAppendable<'a>) -> usize {
+    let mut builder: BytesBuilder<'a, TBytes> = BytesBuilder {
+      bytes: None,
+      capacity: 0,
+    };
+    appendable.append_to_builder(&mut builder);
+    builder.len()
   }
 
   /// Gets the current length of the builder.
